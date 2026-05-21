@@ -261,6 +261,7 @@ public:
     std::vector<float> output_dof_vel;
 
     // thread safety
+    std::mutex policy_mutex;
     std::mutex model_mutex;
 };
 

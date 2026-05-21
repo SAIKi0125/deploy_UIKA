@@ -581,6 +581,8 @@ void RL_Sim::RobotStateCallback(const robot_msgs::msg::RobotState::SharedPtr msg
 
 void RL_Sim::RunModel()
 {
+    std::lock_guard<std::mutex> policy_lock(this->policy_mutex);
+
     if (this->rl_init_done && simulation_running)
     {
         this->episode_length_buf += 1;
