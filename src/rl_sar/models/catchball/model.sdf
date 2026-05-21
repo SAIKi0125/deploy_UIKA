@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<sdf version="1.6">
+  <model name="catchball">
+    <pose>2.0 0 1.2 0 0 0</pose>
+    <link name="ball">
+      <inertial>
+        <mass>0.577</mass>
+        <inertia>
+          <ixx>0.00026097</ixx>
+          <iyy>0.00026097</iyy>
+          <izz>0.00026097</izz>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyz>0</iyz>
+        </inertia>
+      </inertial>
+      <collision name="collision">
+        <geometry>
+          <sphere>
+            <radius>0.03365</radius>
+          </sphere>
+        </geometry>
+        <surface>
+          <contact>
+            <ode>
+              <kp>100000</kp>
+              <kd>10</kd>
+            </ode>
+          </contact>
+        </surface>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <sphere>
+            <radius>0.03365</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <ambient>1.0 0.28 0.05 1.0</ambient>
+          <diffuse>1.0 0.28 0.05 1.0</diffuse>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>
