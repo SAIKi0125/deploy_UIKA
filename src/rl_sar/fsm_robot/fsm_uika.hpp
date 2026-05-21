@@ -12,6 +12,13 @@
 namespace uika_fsm
 {
 
+inline const std::vector<float> UIKA_STAND_DOF_POS = {
+    -0.78f, 0.05f, 0.70f,
+     0.78f, 0.05f, 0.70f,
+    -0.78f, 0.05f, 0.70f,
+     0.78f, 0.05f, 0.70f
+};
+
 inline void DrainOutputQueues(RL& rl)
 {
     std::vector<float> output;
@@ -89,11 +96,11 @@ public:
         if (stand_from_passive)
         {
             if (Interpolate(percent_pre_getup, rl.now_state.motor_state.q, pre_running_pos, 1.0f, "Pre Getting up", true)) return;
-            if (Interpolate(percent_getup, pre_running_pos, rl.params.Get<std::vector<float>>("default_dof_pos"), 2.0f, "Getting up", true)) return;
+            if (Interpolate(percent_getup, pre_running_pos, UIKA_STAND_DOF_POS, 2.0f, "Getting up", true)) return;
         }
         else
         {
-            if (Interpolate(percent_getup, rl.now_state.motor_state.q, rl.params.Get<std::vector<float>>("default_dof_pos"), 1.0f, "Getting up", true)) return;
+            if (Interpolate(percent_getup, rl.now_state.motor_state.q, UIKA_STAND_DOF_POS, 1.0f, "Getting up", true)) return;
         }
     }
 
@@ -190,7 +197,7 @@ public:
     void Run() override
     {
         // position transition from last default_dof_pos to current default_dof_pos
-        // if (Interpolate(percent_transition, rl.now_state.motor_state.q, rl.params.Get<std::vector<float>>("default_dof_pos"), 0.5f, "Policy transition", true)) return;
+        if (Interpolate(percent_transition, rl.now_state.motor_state.q, rl.params.Get<std::vector<float>>("default_dof_pos"), 1.0f, "Policy transition", true)) return;
 
         if (!rl.rl_init_done) rl.rl_init_done = true;
 

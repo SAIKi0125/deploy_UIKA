@@ -218,6 +218,7 @@ public:
     virtual void GetState(RobotState<float> *state) = 0;
     virtual void SetCommand(const RobotCommand<float> *command) = 0;
     void StateController(const RobotState<float> *state, RobotCommand<float> *command);
+    std::vector<float> ApplyActionFilter(const std::vector<float> &actions);
     void ComputeOutput(const std::vector<float> &actions, std::vector<float> &output_dof_pos, std::vector<float> &output_dof_vel, std::vector<float> &output_dof_tau);
 
     // yaml params
@@ -259,6 +260,8 @@ public:
     std::vector<float> output_dof_tau;
     std::vector<float> output_dof_pos;
     std::vector<float> output_dof_vel;
+    std::vector<float> filtered_actions;
+    bool action_filter_initialized = false;
 
     // thread safety
     std::mutex policy_mutex;

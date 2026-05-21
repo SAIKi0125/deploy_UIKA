@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 uika/lowbar:
-  model_name: "policy.pt"
+  model_name: "policy(1).pt"
 
   # UIKA takeoff-branch Velocity task for low-bar traversal.
   # Single-frame observation:
@@ -54,6 +54,7 @@ uika/lowbar:
   commands_scale: [1.0, 1.0, 1.0]
   commands_limit_lower: [-1.0, 0.0, -0.5]
   commands_limit_upper: [1.0, 0.0, 0.5]
+  action_filter_alpha: 0.35
 
   torque_limits: [17.0, 17.0, 31.7,
                   17.0, 17.0, 31.7,

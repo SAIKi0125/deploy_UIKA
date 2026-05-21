@@ -657,7 +657,7 @@ void RL_Sim::RunModel()
             this->UpdateCatchballObservationMujoco();
         }
 
-        this->obs.actions = this->Forward();
+        this->obs.actions = this->ApplyActionFilter(this->Forward());
         this->ComputeOutput(this->obs.actions, this->output_dof_pos, this->output_dof_vel, this->output_dof_tau);
 
         if (!this->output_dof_pos.empty())

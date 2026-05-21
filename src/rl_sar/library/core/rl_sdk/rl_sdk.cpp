@@ -276,6 +276,9 @@ void RL::InitOutputs()
     this->output_dof_pos = this->params.Get<std::vector<float>>("default_dof_pos");
     this->output_dof_vel.clear();
     this->output_dof_vel.resize(num_of_dofs, 0.0f);
+    this->filtered_actions.clear();
+    this->filtered_actions.resize(num_of_dofs, 0.0f);
+    this->action_filter_initialized = false;
 }
 
 void RL::InitControl()
@@ -331,6 +334,31 @@ void RL::InitRL(std::string robot_config_path)
     {
         throw std::runtime_error("Failed to load model from: " + model_path);
     }
+}
+
+std::vector<float> RL::ApplyActionFilter(const std::vector<float> &actions)
+{
+    const float alpha = this->params.Get<float>("action_filter_alpha", 1.0f);
+    if (alpha >= 1.0f)
+    {
+        this->filtered_actions = actions;
+        this->action_filter_initialized = true;
+        return actions;
+    }
+
+    const float clamped_alpha = std::clamp(alpha, 0.0f, 1.0f);
+    if (!this->action_filter_initialized || this->filtered_actions.size() != actions.size())
+    {
+        this->filtered_actions = actions;
+        this->action_filter_initialized = true;
+        return actions;
+    }
+
+    for (size_t i = 0; i < actions.size(); ++i)
+    {
+        this->filtered_actions[i] = clamped_alpha * actions[i] + (1.0f - clamped_alpha) * this->filtered_actions[i];
+    }
+    return this->filtered_actions;
 }
 
 void RL::ComputeOutput(const std::vector<float> &actions, std::vector<float> &output_dof_pos, std::vector<float> &output_dof_vel, std::vector<float> &output_dof_tau)
