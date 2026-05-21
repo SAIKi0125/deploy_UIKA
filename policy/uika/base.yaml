@@ -4,6 +4,8 @@
 uika:
   dt: 0.005
   decimation: 4
+  joint_obs_pos_filter_alpha: 0.35
+  joint_obs_vel_filter_alpha: 0.35
   fixed_kp: [30.0, 30.0, 30.0,
              30.0, 30.0, 30.0,
              30.0, 30.0, 30.0,

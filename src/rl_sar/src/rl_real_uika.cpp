@@ -360,8 +360,10 @@ void RL_Real_UIKA::RunModel()
             };
         }
         this->obs.base_quat = this->robot_state.imu.quaternion;
-        this->obs.dof_pos = this->robot_state.motor_state.q;
-        this->obs.dof_vel = this->robot_state.motor_state.dq;
+        this->obs.dof_pos = this->ApplyJointObsFilter(
+            this->robot_state.motor_state.q, "joint_obs_pos_filter_alpha", this->filtered_joint_obs_pos);
+        this->obs.dof_vel = this->ApplyJointObsFilter(
+            this->robot_state.motor_state.dq, "joint_obs_vel_filter_alpha", this->filtered_joint_obs_vel);
 
         this->obs.actions = this->ApplyActionFilter(this->Forward());
         this->ComputeOutput(this->obs.actions, this->output_dof_pos, this->output_dof_vel, this->output_dof_tau);

@@ -219,6 +219,8 @@ public:
     virtual void SetCommand(const RobotCommand<float> *command) = 0;
     void StateController(const RobotState<float> *state, RobotCommand<float> *command);
     std::vector<float> ApplyActionFilter(const std::vector<float> &actions);
+    std::vector<float> ApplyJointObsFilter(const std::vector<float> &joint_obs, const std::string &alpha_key, std::vector<float> &filtered_joint_obs);
+    void ResetJointObsFilter();
     void ComputeOutput(const std::vector<float> &actions, std::vector<float> &output_dof_pos, std::vector<float> &output_dof_vel, std::vector<float> &output_dof_tau);
 
     // yaml params
@@ -262,6 +264,8 @@ public:
     std::vector<float> output_dof_vel;
     std::vector<float> filtered_actions;
     bool action_filter_initialized = false;
+    std::vector<float> filtered_joint_obs_pos;
+    std::vector<float> filtered_joint_obs_vel;
 
     // thread safety
     std::mutex policy_mutex;

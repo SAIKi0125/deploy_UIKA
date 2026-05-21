@@ -279,6 +279,7 @@ void RL::InitOutputs()
     this->filtered_actions.clear();
     this->filtered_actions.resize(num_of_dofs, 0.0f);
     this->action_filter_initialized = false;
+    this->ResetJointObsFilter();
 }
 
 void RL::InitControl()
@@ -359,6 +360,38 @@ std::vector<float> RL::ApplyActionFilter(const std::vector<float> &actions)
         this->filtered_actions[i] = clamped_alpha * actions[i] + (1.0f - clamped_alpha) * this->filtered_actions[i];
     }
     return this->filtered_actions;
+}
+
+std::vector<float> RL::ApplyJointObsFilter(
+    const std::vector<float> &joint_obs,
+    const std::string &alpha_key,
+    std::vector<float> &filtered_joint_obs)
+{
+    const float alpha = this->params.Get<float>(alpha_key, 1.0f);
+    if (alpha >= 1.0f)
+    {
+        filtered_joint_obs = joint_obs;
+        return joint_obs;
+    }
+
+    const float clamped_alpha = std::clamp(alpha, 0.0f, 1.0f);
+    if (filtered_joint_obs.size() != joint_obs.size())
+    {
+        filtered_joint_obs = joint_obs;
+        return joint_obs;
+    }
+
+    for (size_t i = 0; i < joint_obs.size(); ++i)
+    {
+        filtered_joint_obs[i] = clamped_alpha * joint_obs[i] + (1.0f - clamped_alpha) * filtered_joint_obs[i];
+    }
+    return filtered_joint_obs;
+}
+
+void RL::ResetJointObsFilter()
+{
+    this->filtered_joint_obs_pos.clear();
+    this->filtered_joint_obs_vel.clear();
 }
 
 void RL::ComputeOutput(const std::vector<float> &actions, std::vector<float> &output_dof_pos, std::vector<float> &output_dof_vel, std::vector<float> &output_dof_tau)
