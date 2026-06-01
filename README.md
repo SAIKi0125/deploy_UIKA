@@ -1,607 +1,192 @@
-# rl_sar
+# deploy_UIKA
 
 [![Ubuntu 20.04/22.04](https://img.shields.io/badge/Ubuntu-20.04/22.04-blue.svg?logo=ubuntu)](https://ubuntu.com/)
-[![macOS](https://img.shields.io/badge/macOS-Experimental-orange.svg?logo=apple)](https://www.apple.com/macos/)
 [![ROS Noetic](https://img.shields.io/badge/ros-noetic-brightgreen.svg?logo=ros)](https://wiki.ros.org/noetic)
-[![ROS2 Foxy/Humble](https://img.shields.io/badge/ros2-foxy/humble-brightgreen.svg?logo=ros)](https://wiki.ros.org/foxy)
+[![ROS2 Foxy/Humble](https://img.shields.io/badge/ros2-foxy/humble-brightgreen.svg?logo=ros)](https://docs.ros.org/en/humble/)
 [![Gazebo](https://img.shields.io/badge/Gazebo-Classic-lightgrey.svg?logo=gazebo)](http://gazebosim.org/)
 [![MuJoCo](https://img.shields.io/badge/MuJoCo-3.2.7-orange.svg?logo=mujoco)](https://mujoco.org/)
 [![License](https://img.shields.io/badge/license-Apache2.0-yellow.svg?logo=apache)](https://opensource.org/license/apache-2-0)
 
-[中文文档](README_CN.md)
-
-This repository provides a framework for simulation verification and physical deployment of robot reinforcement learning algorithms, suitable for quadruped robots, wheeled robots, and humanoid robots. "sar" stands for "simulation and real"
-
-> Supports both **IsaacGym** and **IsaacSim**
->
-> Supports both **ROS-Noetic** and **ROS2-Foxy/Humble**
->
-> Supports both **libtorch** and **onnxruntime**
->
-> Supports both **Linux** and **macOS**(Only support Mujoco simulation)
->
-> Supports both **Gazebo** and **Mujoco**(Partial support)
->
-> Supports both **Locomotion** and **Dance**
-
-Support List:
-
-|Robot Name (rname:=)|Pre-Trained Policy|Gazebo|Mujoco|Real|
-|-|-|-|-|-|
-|Unitree-A1 (a1)|legged_gym (IsaacGym)|✅|❌|✅|
-|Unitree-Go2 (go2)|himloco (IsaacGym)</br>robot_lab (IsaacSim)|✅|✅|✅</br>✅|
-|Unitree-Go2W (go2w)|robot_lab (IsaacSim)|✅|✅|✅|
-|Unitree-B2 (b2)|robot_lab (IsaacSim)|✅|✅|⚪|
-|Unitree-B2W (b2w)|robot_lab (IsaacSim)|✅|✅|⚪|
-|Unitree-G1 (g1)|robomimic/locomotion (IsaacGym)</br>robomimic/charleston (IsaacGym)</br>whole_body_tracking/dance_102 (IsaacSim)</br>whole_body_tracking/gangnam_style (IsaacSim)|✅|✅|✅|
-|FFTAI-GR1T1 (gr1t1)</br>(Only available on Ubuntu20.04)|legged_gym (IsaacGym)|✅|❌|⚪|
-|FFTAI-GR1T2 (gr1t2)</br>(Only available on Ubuntu20.04)|legged_gym (IsaacGym)|✅|❌|⚪|
-|zhinao-L4W4 (l4w4)|legged_gym (IsaacGym)|✅|❌|✅|
-|Deeprobotics-Lite3 (lite3)|himloco (IsaacGym)|✅|❌|✅|
-|Agibot-D1 (d1)|robot_lab (IsaacSim)|✅|✅|✅|
-|DDTRobot-Tita (tita)|robot_lab (IsaacSim)|✅|❌|⚪|
-
-> [!IMPORTANT]
-> Python version temporarily suspended maintenance, please use [v2.3](https://github.com/fan-ziqi/rl_sar/releases/tag/v2.3) if necessary, may be re-released in the future.
-
-> [!NOTE]
-> If you want to train policy using IsaacLab(IsaacSim), please use [robot_lab](https://github.com/fan-ziqi/robot_lab) project.
->
-> The order of joints in robot_lab cfg file `joint_names` is the same as that defined in `xxx/robot_lab/config.yaml` in this project.
->
-> Discuss in [Github Discussion](https://github.com/fan-ziqi/rl_sar/discussions) or [Discord](http://www.robotsfan.com/dc_rl_sar).
+UIKA 四足机器人的 Sim2Real 部署仓库,基于 [fan-ziqi/rl_sar](https://github.com/fan-ziqi/rl_sar) 框架裁剪而来,只保留 UIKA 一台机器人。配套的训练仓库是 [himloco_lab](https://github.com/SAIKi0125/UIKA_lab) ── 在 Isaac Lab 中训练 → 导出 `policy.pt` / `deploy.yaml` → 拷进本仓库 → Gazebo / MuJoCo 验证 → 实机部署。
 
 > [!CAUTION]
-> **Disclaimer: User acknowledges that all risks and consequences arising from using this code shall be solely borne by the user, the author assumes no liability for any direct or indirect damages, and proper safety measures must be implemented prior to operation.**
+> **免责声明:使用本代码所产生的一切风险与后果由用户自行承担,作者不对任何直接或间接损失负责。实机部署前请务必准备好急停、限位、保护绳。**
 
-## Preparation
+## 目录
 
-Clone the repository
+- [仓库定位](#仓库定位)
+- [仓库结构](#仓库结构)
+- [环境准备](#环境准备)
+- [编译](#编译)
+- [运行](#运行)
+- [策略与训练仓库的对应关系](#策略与训练仓库的对应关系)
+- [部署完整流程](#部署完整流程)
+- [FSM 状态与按键](#fsm-状态与按键)
+- [参考项目](#参考项目)
 
-```bash
-git clone --recursive --depth 1 https://github.com/fan-ziqi/rl_sar.git
+## 仓库定位
+
+本仓库 = `rl_sar` 框架 + UIKA 专属资源。相比上游 `rl_sar`:
+
+- 只保留 UIKA 一台机器人(`policy/uika/`、`fsm_uika.hpp`、`uika_description/`)
+- 去掉了 a1/go2/go2w/g1/b2/b2w/d1/lite3/l4w4/gr1t1/gr1t2/tita 等非 UIKA 资源与对应可执行文件
+- 通用入口 `rl_sim`(Gazebo)、`rl_sim_mujoco`(MuJoCo)保留,实机入口尚未就绪 ── 实机控制可走 ROS 通用入口或自行新增 `rl_real_uika.cpp`
+- `src/rl_sar_zoo/uika_description/` 已直接随仓库分发,无需另外执行 `download_robot_descriptions.sh`
+
+UIKA 训练侧的策略结构、奖励设计、地形配置等请参阅 [himloco_lab](https://github.com/SAIKi0125/UIKA_lab) ── 本仓库只关心训练好的策略如何跑起来。
+
+## 仓库结构
+
+```text
+deploy_UIKA/
+├── build.sh                              # 一键构建脚本(详见“编译”一节)
+├── policy/uika/
+│   ├── base.yaml                         # UIKA 物理参数:关节顺序、默认站立角、扭矩上限
+│   └── himloco/
+│       ├── config.yaml                   # 策略参数:观测构成、归一化、动作缩放、命令限幅
+│       └── policy.pt                     # 来自 himloco_lab 的 TorchScript 策略
+├── src/rl_sar/
+│   ├── library/core/                     # rl_sdk、推理后端、FSM、observation buffer 等通用核心
+│   ├── fsm_robot/
+│   │   ├── fsm_uika.hpp                  # UIKA 状态机:Passive / GetUp / GetDown / RLHimLoco
+│   │   └── fsm_all.hpp                   # 仅 include fsm_uika.hpp
+│   ├── src/
+│   │   ├── rl_sim.cpp                    # Gazebo 入口
+│   │   └── rl_sim_mujoco.cpp             # MuJoCo 入口
+│   ├── launch/                           # gazebo.launch / gazebo.launch.py
+│   └── test/test_uika_integration.py     # 校验 deploy 配置与训练导出 deploy.yaml 一致
+├── src/rl_sar_zoo/uika_description/      # UIKA URDF / Mesh / MJCF
+│   ├── urdf/uika_description.urdf
+│   ├── mjcf/{uika.xml, scene.xml}
+│   └── meshes/*.STL
+├── src/{robot_msgs, robot_joint_controller}/   # Gazebo 控制器与消息接口
+├── scripts/                              # download_inference_runtime / download_mujoco / convert_policy 等
+└── docker/                               # ROS2 Humble + Gazebo + MuJoCo 容器
 ```
 
-To update
-
-```bash
-git pull
-git submodule update --init --recursive --recommend-shallow --progress
-```
-
-## Dependency
-
-Install the required packages:
+## 环境准备
 
 ```bash
 # Ubuntu
-sudo apt install cmake g++ build-essential libyaml-cpp-dev libeigen3-dev libboost-all-dev libspdlog-dev libfmt-dev libtbb-dev liblcm-dev
-
-# macOS
-brew install boost lcm yaml-cpp tbb libomp pkg-config glfw
+sudo apt install cmake g++ build-essential libyaml-cpp-dev libeigen3-dev \
+                 libboost-all-dev libspdlog-dev libfmt-dev libtbb-dev liblcm-dev
 ```
 
-If you need to use ROS, install the following dependency packages:
+并安装下面之一(或两者都装):
+
+- **ROS Noetic**(Ubuntu 20.04) → 走 catkin 编译,使用 `rl_sim`
+- **ROS2 Foxy / Humble**(Ubuntu 20.04 / 22.04) → 走 colcon 编译,使用 `rl_sim`
+
+非 ROS 模式只能跑 MuJoCo 仿真(`rl_sim_mujoco`),不需要 ROS。
+
+克隆仓库:
 
 ```bash
-# ros-noetic (Ubuntu20.04)
-sudo apt install ros-noetic-teleop-twist-keyboard ros-noetic-controller-interface ros-noetic-gazebo-ros-control ros-noetic-joint-state-controller ros-noetic-effort-controllers ros-noetic-joint-trajectory-controller ros-noetic-joy ros-noetic-ros-control ros-noetic-ros-controllers ros-noetic-controller-manager
-
-# ros2-foxy (Ubuntu20.04) / ros2-humble (Ubuntu22.04)
-sudo apt install ros-$ROS_DISTRO-teleop-twist-keyboard ros-$ROS_DISTRO-ros2-control ros-$ROS_DISTRO-ros2-controllers ros-$ROS_DISTRO-control-toolbox ros-$ROS_DISTRO-robot-state-publisher ros-$ROS_DISTRO-joint-state-publisher-gui ros-$ROS_DISTRO-gazebo-ros2-control ros-$ROS_DISTRO-gazebo-ros-pkgs ros-$ROS_DISTRO-xacro
+git clone --recursive --depth 1 git@github.com:SAIKi0125/deploy_UIKA.git
+cd deploy_UIKA
+git checkout UIKA
 ```
 
-## Compilation
+> 拉子模块需要 SSH key 已加到 GitHub。SDK 子模块在 `src/rl_sar/library/thirdparty/` 下。
 
-Execute the following script in the project root directory to compile the entire project:
+## 编译
+
+统一通过 `./build.sh`:
 
 ```bash
-./build.sh
+./build.sh                # ROS 模式构建全部包(需要先 source ROS 环境)
+./build.sh rl_sar         # ROS 模式仅构建 rl_sar 包
+./build.sh -m  | --cmake  # 纯 CMake(无 ROS),输出到 cmake_build/{bin,lib}
+./build.sh -mj | --mujoco # CMake + MuJoCo 仿真支持
+./build.sh -c  | --clean  # 清理 build/ cmake_build/ devel/ install/ log/ .catkin_tools/ 与符号链接
 ```
 
-To compile specific packages individually, you can append the package names:
+首次构建会自动通过 `scripts/download_inference_runtime.sh` 下载 libtorch 与(非 Jetson 平台的)onnxruntime,通过 `scripts/download_mujoco.sh` 下载 MuJoCo;`uika_description` 已随仓库提供,不需要再执行 `download_robot_descriptions.sh`。
 
-```bash
-./build.sh package1 package2
-```
+ROS1 / ROS2 切换会自动清理对方残留;若识别异常,跑一次 `./build.sh -c` 再重新编译。
 
-To clean the build, use the following command. This will remove all compiled outputs and created symbolic links:
+## 运行
 
-```bash
-./build.sh -c  # or ./build.sh --clean
-```
-
-If simulation is not needed and you only want to run on the robot, you can compile using CMake while disabling ROS (the compiled executables will be in `cmake_build/bin` and libraries in `cmake_build/lib`):
-
-```bash
-./build.sh -m  # or ./build.sh --cmake
-```
-
-To use the Mujoco simulator
-
-```bash
-./build.sh -mj  # or ./build.sh --mujoco
-```
-
-For detailed usage instructions, you can check them via `./build.sh -h`:
-
-```bash
-Usage: ./build.sh [OPTIONS] [PACKAGE_NAMES...]
-
-Options:
-  -c, --clean    Clean workspace (remove symlinks and build artifacts)
-  -m, --cmake    Build using CMake (for hardware deployment only)
-  -mj,--mujoco   Build with MuJoCo simulator support (CMake only)"
-  -h, --help     Show this help message
-
-Examples:
-  ./build.sh                    # Build all ROS packages
-  ./build.sh package1 package2  # Build specific ROS packages
-  ./build.sh -c                 # Clean all symlinks and build artifacts
-  ./build.sh --clean package1   # Clean specific package and build artifacts
-  ./build.sh -m                 # Build with CMake for hardware deployment
-  ./build.sh -mj                # Build with CMake and MuJoCo simulator support
-```
-
-> [!TIP]
-> If catkin build report errors: `Unable to find either executable 'empy' or Python module 'em'`, run `catkin config -DPYTHON_EXECUTABLE=/usr/bin/python3` before `catkin build`
-
-## Running
-
-In the following text, **\<ROBOT\>/\<CONFIG\>** is used to represent different environments, such as `go2/himloco` and `go2w/robot_lab`.
-
-Before running, copy the trained pt model file to `rl_sar/src/rl_sar/policy/<ROBOT>/<CONFIG>`, and configure the parameters in `<ROBOT>/<CONFIG>/config.yaml` and `<ROBOT>/base.yaml`.
-
-### Simulation
-
-#### Gazebo
-
-Open a terminal, launch the gazebo simulation environment
+### Gazebo 仿真(ROS)
 
 ```bash
 # ROS1
 source devel/setup.bash
-roslaunch rl_sar gazebo.launch rname:=<ROBOT>
-
-# ROS2
-source install/setup.bash
-ros2 launch rl_sar gazebo.launch.py rname:=<ROBOT>
-```
-
-Open a new terminal, launch the control program
-
-```bash
-# ROS1
-source devel/setup.bash
+roslaunch rl_sar gazebo.launch rname:=uika
+# 另开终端
 rosrun rl_sar rl_sim
 
 # ROS2
 source install/setup.bash
+ros2 launch rl_sar gazebo.launch.py rname:=uika
+# 另开终端
 ros2 run rl_sar rl_sim
 ```
 
-> [!TIP]
-> **IMPORTANT:** After launching Gazebo, you must launch `rl_sim` in a separate terminal to control the robot. Without `rl_sim`, the robot will not be controlled and may fall over.
->
-> If you cannot see the robot after launching Gazebo in Ubuntu 22.04, it means the robot was initialized outside the field of view. The robot's position will be automatically reset after launching rl_sim. If the robot falls over during the standing process, use the keyboard `R` or the gamepad `RB+Y` to reset the robot.
+> Gazebo 启动后必须立即在第二个终端拉起 `rl_sim`,否则机器人会直接趴下。
 
-If Gazebo cannot be opened when you start it for the first time, you need to download the model package
+### MuJoCo 仿真(无 ROS)
 
 ```bash
-git clone https://github.com/osrf/gazebo_models.git ~/.gazebo/models
+./build.sh -mj
+./cmake_build/bin/rl_sim_mujoco uika scene
 ```
 
-#### Mujoco
+参数 1 是机器人名(`uika`),参数 2 是 `src/rl_sar_zoo/uika_description/mjcf/<scene>.xml` 中的场景名(默认提供 `scene`)。
 
-```bash
-./cmake_build/bin/rl_sim_mujoco <ROBOT> <SCENE>
-# Example: ./cmake_build/bin/rl_sim_mujoco g1 scene_29dof
-```
+### 实机部署
 
-#### Docker
+当前仓库中没有 UIKA 专用的 `rl_real_uika.cpp`。两种思路:
 
-Docker support is available for simulation and deployment. See [docker/README.md](docker/README.md) for details.
+1. 把通用 `rl_sim` 接到实机的 ROS 控制接口上(joint_state / joint_command 复用消息定义)
+2. 参照原版 `rl_sar` 的 `rl_real_*.cpp`(已在本分支删除,可在上游或提交历史 `7a172ae` 之前的 main 上找到模板)新增 `src/rl_sar/src/rl_real_uika.cpp`,在 `CMakeLists.txt` 中按 `rl_real_*` 模式注册可执行文件
 
-```bash
-# Start container
-xhost +local:docker  # Enable X11 on host
-cd docker && docker compose up -d
-docker compose exec rl_sar bash
+实机入口完成前,请只在仿真中运行。
 
-# Inside container - MuJoCo
-./cmake_build/bin/rl_sim_mujoco g1 scene_29dof
+## 策略与训练仓库的对应关系
 
-# Inside container - Gazebo
-ros2 launch rl_sar gazebo.launch.py rname:=go2
-# (new terminal) ros2 run rl_sar rl_sim
-
-# Inside container - Real robot
-./cmake_build/bin/rl_real_go2 <NETWORK_INTERFACE>
-```
-
-### Control with Mobile Web (Experimental)
-
-Install dependencies
-
-```bash
-sudo apt install ros-${ROS_DISTRO}-rosbridge-suite
-sudo apt install ros-${ROS_DISTRO}-web-video-server
-
-# If you are using a ROS2 version other than Humble, Jazz, and Rolling, you need to build `web_video_server` from source
-cd <your_ros2_workspace>/src
-git clone https://github.com/RobotWebTools/web_video_server.git
-cd <your_ros2_workspace>
-colcon build --packages-select web_video_server
-```
-
-Run rosbridge and web_video_server in robot
-
-```bash
-# ROS1
-roslaunch rosbridge_server rosbridge_websocket.launch
-rosrun web_video_server web_video_server
-
-# ROS2
-ros2 launch rosbridge_server rosbridge_websocket_launch.xml
-ros2 run web_video_server web_video_server
-```
-
-Visit [http://robot.robotsfan.com/](http://robot.robotsfan.com/), fill in the IP address and port, check the settings page in the upper right corner, then connect to the robot. After entering the control page, turn the screen horizontally and click the full screen button in the upper left corner, Then you can control the robot using your phone's browser!
-
-### Control with Gamepad or Keyboard
-
-|Gamepad Control|Keyboard Control|Description|
+| 文件 | 来源 | 含义 |
 |---|---|---|
-|**Basic**|||
-|A|Num0|Move the robot from its initial program pose to the `default_dof_pos` defined in `base.yaml` using position control interpolation|
-|B|Num9|Move the robot from its current position to the initial program pose using position control interpolation|
-|X|N|Toggle navigation mode (disables velocity commands, receives `cmd_vel` topic)|
-|Y|N/A|N/A|
-|**Simulation**|||
-|RB+Y|R|Reset Gazebo environment (stand up fallen robot)|
-|RB+X|Enter|Toggle Gazebo run/stop (default: running state)|
-|**Motor**|||
-|LB+A|M|N/A (Recommended for motor enable)|
-|LB+B|K|N/A (Recommended for motor disable)|
-|LB+X|P|N/A Motor passive mode (`kp=0, kd=8`)|
-|LB+RB|N/A|N/A (Recommended for emergency stop)|
-|**Skill**|||
-|RB+DPadUp|Num1|Basic Locomotion|
-|RB+DPadDown|Num2|Skill 2|
-|RB+DPadLeft|Num3|Skill 3|
-|RB+DPadRight|Num4|Skill 4|
-|LB+DPadUp|Num5|Skill 5|
-|LB+DPadDown|Num6|Skill 6|
-|LB+DPadLeft|Num7|Skill 7|
-|LB+DPadRight|Num8|Skill 8|
-|**Movement**|||
-|LY Axis|W/S|Forward/Backward movement (X-axis)|
-|LX Axis|A/D|Left/Right movement (Y-axis)|
-|RX Axis|Q/E|Yaw rotation|
-|N/A (Release joystick)|Space|Reset all control commands to zero|
+| `policy/uika/himloco/policy.pt` | `himloco_lab/logs/himloco_rsl_rl/uika/<run>/exported/policy.pt` | TorchScript 策略 |
+| `policy/uika/himloco/config.yaml` | 与 `himloco_lab` 训练时的 `params/deploy.yaml` 对齐 | 观测/动作/命令归一化、限幅、关节映射 |
+| `policy/uika/base.yaml` | UIKA 物理参数 | 关节名/顺序、默认站立角、扭矩上限、`joint_mapping` |
 
-### Real Robots
+观测维度 = `commands(3) + ang_vel(3) + gravity(3) + dof_pos(12) + dof_vel(12) + actions(12) = 45`,HimLoco encoder 用 6 帧历史,实际推理输入 `45 × 6 = 270`。命令向量 `[lin_vel_x, lin_vel_y, ang_vel_z]`,默认限幅 `[-1, 1]`。
 
-<details>
+`src/rl_sar/test/test_uika_integration.py` 会把 `policy/uika/` 下的 `config.yaml` / `base.yaml` 与 `himloco_lab` 训练 run 中的 `params/deploy.yaml` 比对,任何关节顺序、缩放、限幅、`default_dof_pos` 漂移都会被它抓出来。导入新策略后请运行此测试。
 
-<summary>Unitree A1 (Click to expand)</summary>
+## 部署完整流程
 
-Unitree A1 can be connected using both wireless and wired methods:
+1. **训练**:在 `himloco_lab` 中训练 UIKA 策略,任务名 `UIKA-Velocity`(详见训练仓库 README)
+2. **导出**:`python scripts/himloco_rsl_rl/play.py --task UIKA-Velocity-Play`,产物在 `logs/himloco_rsl_rl/uika/<timestamp>/exported/`
+3. **同步**:把 `policy.pt` 拷到 `policy/uika/himloco/policy.pt`,把训练 run 的 `params/deploy.yaml` 中关键字段(`joint_ids_map`、`actions.JointPositionAction.scale/clip`、`commands.base_velocity.ranges`、`observations.*.scale`)同步进 `policy/uika/himloco/config.yaml`
+4. **校验**:`python -m unittest src/rl_sar/test/test_uika_integration.py`,确保 deploy 配置与训练导出一致
+5. **Sim2Sim**:先用 MuJoCo (`rl_sim_mujoco uika scene`) 验证策略,再上 Gazebo
+6. **参数辨识**:用 [PACE](https://github.com/leggedrobotics/pace-sim2real) 校准质量/质心/惯量/阻尼/PD,把校准后的参数回写训练侧再导出新策略
+7. **Sim2Real**:在低速、限幅、有人保护、急停就位的条件下首次上机,观察站立角、关节方向、扭矩,确认无误后再放开速度命令
 
-- Wireless: Connect to the Unitree starting with WIFI broadcasted by the robot **(Note: Wireless connection may lead to packet loss, disconnection, or even loss of control, please ensure safety)**
-- Wired: Use an Ethernet cable to connect any port on the computer and the robot, configure the computer IP as 192.168.123.162, and the netmask as 255.255.255.0
+## FSM 状态与按键
 
-Open a new terminal and start the control program
+`fsm_uika.hpp` 注册了 4 个状态,运行时通过键盘或手柄切换:
 
-```bash
-# ROS1
-source devel/setup.bash
-rosrun rl_sar rl_real_a1
+| 状态 | 键盘 | 手柄 | 说明 |
+|---|---|---|---|
+| `RLFSMStatePassive` | `P` | `LB+X` | 阻尼模式,关节零扭矩 + 阻尼,防摔 |
+| `RLFSMStateGetUp` | `0` | `A` | 站立(从 Passive 进入会先经预备姿态再到 default_dof_pos) |
+| `RLFSMStateGetDown` | `9` | `B` | 蹲下回到起始姿态 |
+| `RLFSMStateRLHimLoco` | `1` | `RB+DPadUp` | 加载 `policy/uika/himloco/`,RL 策略接管行走 |
 
-# ROS2
-source install/setup.bash
-ros2 run rl_sar rl_real_a1
+通用按键(`Input::Keyboard` / `Input::Gamepad`)定义在 `src/rl_sar/library/core/rl_sdk/rl_sdk.hpp`,UIKA 复用其中的 W/S/A/D/Q/E 与左摇杆作为速度命令输入。
 
-# CMake
-./cmake_build/bin/rl_real_a1
-```
+## 参考项目
 
-</details>
+- [himloco_lab](https://github.com/SAIKi0125/UIKA_lab) ── UIKA 训练仓库(Isaac Lab + HimLoco)
+- [rl_sar](https://github.com/fan-ziqi/rl_sar) ── 上游 Sim2Real 部署框架
+- [HimLoco](https://github.com/RoboLoco/HimLoco) ── HimLoco 算法原始实现
+- [Isaac Lab](https://isaac-sim.github.io/IsaacLab/)
+- [robot_lab](https://github.com/fan-ziqi/robot_lab) ── 奖励设计参考
+- [PACE Sim2Real](https://github.com/leggedrobotics/pace-sim2real) ── 参数辨识
 
-<details>
+## 致谢
 
-<summary>Unitree Go2/Go2W/G1(29dofs) (Click to expand)</summary>
-
-#### Ethernet Connection
-
-Connect one end of the Ethernet cable to the Go2/Go2W/G1(29dofs) robot and the other end to your computer. Then, enable USB Ethernet on the computer and configure it. The IP address of the onboard computer on the Go2 robot is `192.168.123.161`, so the computer's USB Ethernet address should be set to the same network segment as the robot. For example, enter `192.168.123.222` in the "Address" field (you can replace `222` with another number).
-
-Use the `ifconfig` command to find the name of the network interface for the 123 network segment, such as `enxf8e43b808e06`. In the following steps, replace `<YOUR_NETWORK_INTERFACE>` with the actual network interface name.
-
-Go2:
-
-Open a new terminal and start the control program. If you are controlling Go2W, you need to add `wheel` after the command, otherwise leave it blank.
-
-```bash
-# ROS1
-source devel/setup.bash
-rosrun rl_sar rl_real_go2 <YOUR_NETWORK_INTERFACE> [wheel]
-
-# ROS2
-source install/setup.bash
-ros2 run rl_sar rl_real_go2 <YOUR_NETWORK_INTERFACE> [wheel]
-
-# CMake
-./cmake_build/bin/rl_real_go2 <YOUR_NETWORK_INTERFACE> [wheel]
-```
-
-G1(29dofs):
-
-Turn on the robot and lift it up, press L2+R2 to enter the debugging mode, then open a new terminal and start the control program.
-
-```bash
-# ROS1
-source devel/setup.bash
-rosrun rl_sar rl_real_g1 <YOUR_NETWORK_INTERFACE>
-
-# ROS2
-source install/setup.bash
-ros2 run rl_sar rl_real_g1 <YOUR_NETWORK_INTERFACE>
-
-# CMake
-./cmake_build/bin/rl_real_g1 <YOUR_NETWORK_INTERFACE>
-```
-
-#### Deploying on the Onboard Jetson
-
-Connect your computer to the robot using the Ethernet cable and log into the Jetson onboard computer. The default password is `123`:
-
-```bash
-ssh unitree@192.168.123.18
-```
-
-Connect the phone to the USB of the robot, enable USB network sharing on the phone, pull the code and compile it using `./build.sh -m`. After successful compilation, run:
-
-```bash
-# Go2:
-./cmake_build/bin/rl_real_go2 <YOUR_NETWORK_INTERFACE> [wheel]
-
-# G1(29dofs):
-./cmake_build/bin/rl_real_g1 <YOUR_NETWORK_INTERFACE>
-```
-
-Then you can unplug the phone and network cable, and control the robot using the remote controller.
-
-#### Auto-Start on Boot
-
-If you need to set up auto-start on boot, you can follow this process:
-
-Create a service file
-
-```bash
-sudo touch /etc/systemd/system/rl_sar.service
-```
-
-Write the following content, assuming the rl_sar project is in the `~/rl_sar` directory
-
-```
-[Unit]
-Description=RL SAR Service
-After=network.target
-
-[Service]
-Type=simple
-User=unitree
-WorkingDirectory=/home/unitree/rl_sar
-ExecStart=/home/unitree/rl_sar/cmake_build/bin/rl_real_go2 eth0 wheel
-Restart=on-failure
-RestartSec=5
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Reload the systemd configuration:
-
-```bash
-sudo systemctl daemon-reload
-```
-
-Enable auto-start on boot:
-
-```bash
-sudo systemctl enable rl_sar.service
-```
-
-Disable auto-start on boot:
-
-```bash
-sudo systemctl disable rl_sar.service
-```
-
-Start the service:
-
-```bash
-sudo systemctl start rl_sar.service
-```
-
-Stop the service:
-
-```bash
-sudo systemctl stop rl_sar.service
-```
-
-Restart the service:
-
-```bash
-sudo systemctl restart rl_sar.service
-```
-
-View service logs:
-
-```bash
-sudo journalctl -u rl_sar.service -f
-```
-
-After reboot, the robot will first run the built-in standing program. After the rl_sar service starts, it will automatically dampen down, and then can be controlled normally using the remote controller.
-
-</details>
-
-<details>
-
-<summary>Deeprobotics Lite3 (Click to expand)</summary>
-
-Deeprobotics Lite3 can be connected using wireless method.
-(Wired not tested. For some versions of Lite3, the wired Ethernet port may requires additional installation.)
-
-- Connect to the Lite3 starting with WIFI broadcasted by the robot. We strongly recommand testing the communication the Lite3 using [Lite3_Motion_SDK](https://github.com/DeepRoboticsLab/Lite3_MotionSDK) before use.
- **(Note: Wireless connection may lead to packet loss, disconnection, or even loss of control, please ensure safety)**
-
-- Determine the IP address and port number of Lite3, and modify **line 46-48 in rl_sar/src/rl_real_lite3.cpp**.
-- Then Update **jy_exe/conf/network.toml** on the Lite3 motion host to set the IP and port to that of the local machine running ROS2, enabling communication.
-
-> [!CAUTION]
-> **Recheck joint mapping parameters!<br>Recheck rl_sar/policy/himloco/config.yaml. The default joint mapping in Sim2Sim configuration differs from that used in real. If not updated accordingly, this mismatch may lead to incorrect robot behavior and potential safety hazards**
-
-Lite3 also support control using Deeprobotics Retroid gamepad, refer to [Deeprobotics Gamepad](https://github.com/DeepRoboticsLab/gamepad)
-
-Open a new terminal and start the control program
-
-```bash
-# ROS1
-source devel/setup.bash
-rosrun rl_sar rl_real_lite3
-
-# ROS2
-source install/setup.bash
-ros2 run rl_sar rl_real_lite3
-
-# CMake
-./cmake_build/bin/rl_real_lite3
-```
-
-</details>
-
-<details>
-
-<summary>Agibot D1 (Click to expand)</summary>
-
-D1 can be connected using wireless network.
-
-- Connect to D1's WiFi (default SSID and password are on the label on the side of the robot)
-- Robot default IP: `192.168.234.1` (WiFi) or `192.168.168.168` (Ethernet)
-- You need to configure `/opt/export/config/sdk_config.yaml` on the robot side, set `target_ip` to your PC's IP
-
-**Network Configuration Steps:**
-
-1. SSH into the robot:
-```bash
-ssh firefly@192.168.234.1  # Password: firefly
-```
-
-2. Modify SDK configuration file:
-```bash
-vim /opt/export/config/sdk_config.yaml
-```
-Change `target_ip` to your PC's IP address (e.g., `192.168.234.2`)
-
-3. Reboot the robot for the configuration to take effect
-
-**Run the control program:**
-
-```bash
-# ROS1
-source devel/setup.bash
-rosrun rl_sar rl_real_d1 [local_ip] [robot_ip]
-
-# ROS2
-source install/setup.bash
-ros2 run rl_sar rl_real_d1 [local_ip] [robot_ip]
-
-# CMake
-./cmake_build/bin/rl_real_d1 [local_ip] [robot_ip]
-
-# Example (using default IP)
-./cmake_build/bin/rl_real_d1 192.168.234.2 192.168.234.1
-```
-
-</details>
-
-### Train the actuator network
-
-Take A1 as an example below
-
-1. Uncomment `#define CSV_LOGGER` in the top of `rl_real_a1.hpp`. You can also modify the corresponding part in the simulation program to collect simulation data for testing the training process.
-2. Run the control program, and the program will log all data in `src/rl_sar/policy/<ROBOT>/motor.csv`.
-3. Stop the control program and start training the actuator network. Note that `rl_sar/src/rl_sar/policy/` is omitted before the following paths.
-    ```bash
-    rosrun rl_sar actuator_net.py --mode train --data a1/motor.csv --output a1/motor.pt
-    ```
-4. Verify the trained actuator network.
-    ```bash
-    rosrun rl_sar actuator_net.py --mode play --data a1/motor.csv --output a1/motor.pt
-    ```
-
-## Add Your Robot
-
-The following uses **\<ROBOT\>/\<CONFIG\>** to represent your robot environment. You only need to create or modify the following files, and the names must exactly match those shown below. (You can refer to the corresponding files in go2w as examples.)
-
-```yaml
-# your robot description
-rl_sar/src/rl_sar_zoo/<ROBOT>_description/CMakeLists.txt
-rl_sar/src/rl_sar_zoo/<ROBOT>_description/package.ros1.xml
-rl_sar/src/rl_sar_zoo/<ROBOT>_description/package.ros2.xml
-rl_sar/src/rl_sar_zoo/<ROBOT>_description/xacro/robot.xacro
-rl_sar/src/rl_sar_zoo/<ROBOT>_description/xacro/gazebo.xacro
-rl_sar/src/rl_sar_zoo/<ROBOT>_description/config/robot_control.yaml
-rl_sar/src/rl_sar_zoo/<ROBOT>_description/config/robot_control_ros2.yaml
-
-# your policy
-policy/<ROBOT>/base.yaml  # This file must follow the physical robot's joint order
-policy/<ROBOT>/<CONFIG>/config.yaml
-policy/<ROBOT>/<CONFIG>/<POLICY>.pt  # for libtorch, note that exporting JIT is required
-policy/<ROBOT>/<CONFIG>/<POLICY>.onnx  # for onnxruntime
-
-# fsm for robot
-src/rl_sar/fsm_robot/fsm_<ROBOT>.hpp
-src/rl_sar/fsm_robot/fsm_all.hpp
-
-# your real robot code
-rl_sar/src/rl_sar/src/rl_real_<ROBOT>.cpp  # You can customize the forward() function as needed to adapt to your policy
-```
-
-## Contributing
-
-Wholeheartedly welcome contributions from the community to make this framework mature and useful for everyone. These may happen as bug reports, feature requests, or code contributions.
-
-[List of contributors](CONTRIBUTORS.md)
-
-## Citation
-
-Please cite the following if you use this code or parts of it:
-
-```
-@software{fan-ziqi2024rl_sar,
-  author = {fan-ziqi},
-  title = {rl_sar: Simulation Verification and Physical Deployment of Robot Reinforcement Learning Algorithm.},
-  url = {https://github.com/fan-ziqi/rl_sar},
-  year = {2024}
-}
-```
-
-## Acknowledgements
-
-The project uses some code from the following open-source code repositories:
-
-- [unitreerobotics/unitree_sdk2-2.0.0](https://github.com/unitreerobotics/unitree_sdk2/tree/2.0.0)
-- [unitreerobotics/unitree_legged_sdk-v3.2](https://github.com/unitreerobotics/unitree_legged_sdk/tree/v3.2)
-- [unitreerobotics/unitree_guide](https://github.com/unitreerobotics/unitree_guide)
-- [unitreerobotics/unitree_mujoco](https://github.com/unitreerobotics/unitree_mujoco)
-- [google-deepmind/mujoco-3.2.7](https://github.com/google-deepmind/mujoco)
-- [mertgungor/unitree_model_control](https://github.com/mertgungor/unitree_model_control)
-- [Improbable-AI/walk-these-ways](https://github.com/Improbable-AI/walk-these-ways)
-- [ccrpRepo/RoboMimic_Deploy](https://github.com/ccrpRepo/RoboMimic_Deploy)
-- [Deeprobotics/Lite3_Motion_SDK](https://github.com/DeepRoboticsLab/Lite3_MotionSDK)
-- [chengyangkj/ROS_Flutter_Gui_App](https://github.com/chengyangkj/ROS_Flutter_Gui_App)
+感谢 [fan-ziqi/rl_sar](https://github.com/fan-ziqi/rl_sar)、[IsaacZH/himloco_lab](https://github.com/IsaacZH/himloco_lab) 等上游项目的开源贡献。本仓库为华东理工大学 Robocon 无贰战队 UIKA 仿生足式比赛部署使用,遵循 Apache-2.0 协议。
