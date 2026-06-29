@@ -28,6 +28,7 @@ endif()
 
 # MuJoCo simulator option
 set(USE_MUJOCO OFF CACHE BOOL "Build with MuJoCo simulator support")
+set(ENABLE_LEGACY_ROBOT_SDKS OFF CACHE BOOL "Build legacy non-UIKA robot SDK integrations")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -271,77 +272,81 @@ else()
     message(FATAL_ERROR "Unsupported architecture: ${CMAKE_SYSTEM_PROCESSOR}")
 endif()
 
-# unitree_legged_sdk
-if(SYSTEM_TYPE STREQUAL "Linux")
-add_library(unitree_legged_sdk SHARED IMPORTED)
-set_target_properties(unitree_legged_sdk PROPERTIES
-    INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/unitree/unitree_legged_sdk/include"
-    IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/unitree/unitree_legged_sdk/lib/${UNITREE_LIB}.so"
-)
-set(UNITREE_A1_LIBS Threads::Threads unitree_legged_sdk lcm)
-if($ENV{ROS_DISTRO} MATCHES "foxy|humble")
-    file(GLOB GLOB_UNITREE_LEGGED_SDK "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/unitree/unitree_legged_sdk/lib/${UNITREE_LIB}.so")
-    install(FILES
-        ${GLOB_UNITREE_LEGGED_SDK}
-        DESTINATION lib/
-    )
+if(ENABLE_LEGACY_ROBOT_SDKS)
+    # unitree_legged_sdk
+    if(SYSTEM_TYPE STREQUAL "Linux")
+        add_library(unitree_legged_sdk SHARED IMPORTED)
+        set_target_properties(unitree_legged_sdk PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/unitree/unitree_legged_sdk/include"
+            IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/unitree/unitree_legged_sdk/lib/${UNITREE_LIB}.so"
+        )
+        set(UNITREE_A1_LIBS Threads::Threads unitree_legged_sdk lcm)
+        if($ENV{ROS_DISTRO} MATCHES "foxy|humble")
+            file(GLOB GLOB_UNITREE_LEGGED_SDK "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/unitree/unitree_legged_sdk/lib/${UNITREE_LIB}.so")
+            install(FILES
+                ${GLOB_UNITREE_LEGGED_SDK}
+                DESTINATION lib/
+            )
+        endif()
     endif()
-endif()
 
-# unitree_sdk2
-if(SYSTEM_TYPE STREQUAL "Linux")
-set(BUILD_EXAMPLES OFF CACHE BOOL "Disable examples build for unitree_sdk2" FORCE)
-add_subdirectory(library/thirdparty/robot_sdk/unitree/unitree_sdk2)
-endif()
-
-# l4w4_sdk
-add_library(l4w4_sdk INTERFACE)
-target_include_directories(l4w4_sdk INTERFACE
-    library/thirdparty/robot_sdk/zhinao/l4w4_sdk
-)
-target_link_libraries(l4w4_sdk INTERFACE Threads::Threads)
-
-# Lite3_MotionSDK
-if(SYSTEM_TYPE STREQUAL "Linux")
-add_library(lite3_motionsdk SHARED IMPORTED)
-set_target_properties(lite3_motionsdk PROPERTIES
-    INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/Lite3_MotionSDK/include;${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/Lite3_MotionSDK/include/common"
-    IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/Lite3_MotionSDK/lib/libdeeprobotics_legged_sdk_${ARCH_DIR}.so"
-)
-set(LITE3_REAL_LIBS Threads::Threads lite3_motionsdk)
-if($ENV{ROS_DISTRO} MATCHES "foxy|humble")
-    file(GLOB GLOB_LITE3_SDK_SO "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/Lite3_MotionSDK/lib/libdeeprobotics_legged_sdk_${ARCH_DIR}.so")
-    install(FILES
-        ${GLOB_LITE3_SDK_SO}
-        DESTINATION lib/
-    )
+    # unitree_sdk2
+    if(SYSTEM_TYPE STREQUAL "Linux")
+        set(BUILD_EXAMPLES OFF CACHE BOOL "Disable examples build for unitree_sdk2" FORCE)
+        add_subdirectory(library/thirdparty/robot_sdk/unitree/unitree_sdk2)
     endif()
-endif()
 
-# Agibot D1 SDK (zsl-1)
-if(SYSTEM_TYPE STREQUAL "Linux")
-    add_library(agibot_d1_sdk SHARED IMPORTED)
-    set_target_properties(agibot_d1_sdk PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/agibot/agibot_D1_Edu-Ultra/include"
-        IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/agibot/agibot_D1_Edu-Ultra/lib/zsl-1/${ARCH_DIR}/libmc_sdk_zsl_1_${ARCH_DIR}.so"
+    # l4w4_sdk
+    add_library(l4w4_sdk INTERFACE)
+    target_include_directories(l4w4_sdk INTERFACE
+        library/thirdparty/robot_sdk/zhinao/l4w4_sdk
     )
-    set(AGIBOT_D1_LIBS Threads::Threads agibot_d1_sdk)
-    if($ENV{ROS_DISTRO} MATCHES "foxy|humble")
-        file(GLOB GLOB_AGIBOT_D1_SDK_SO "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/agibot/agibot_D1_Edu-Ultra/lib/zsl-1/${ARCH_DIR}/libmc_sdk_zsl_1_${ARCH_DIR}.so")
-        install(FILES
-            ${GLOB_AGIBOT_D1_SDK_SO}
-            DESTINATION lib/
+    target_link_libraries(l4w4_sdk INTERFACE Threads::Threads)
+
+    # Lite3_MotionSDK
+    if(SYSTEM_TYPE STREQUAL "Linux")
+        add_library(lite3_motionsdk SHARED IMPORTED)
+        set_target_properties(lite3_motionsdk PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/Lite3_MotionSDK/include;${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/Lite3_MotionSDK/include/common"
+            IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/Lite3_MotionSDK/lib/libdeeprobotics_legged_sdk_${ARCH_DIR}.so"
+        )
+        set(LITE3_REAL_LIBS Threads::Threads lite3_motionsdk)
+        if($ENV{ROS_DISTRO} MATCHES "foxy|humble")
+            file(GLOB GLOB_LITE3_SDK_SO "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/Lite3_MotionSDK/lib/libdeeprobotics_legged_sdk_${ARCH_DIR}.so")
+            install(FILES
+                ${GLOB_LITE3_SDK_SO}
+                DESTINATION lib/
+            )
+        endif()
+    endif()
+
+    # Agibot D1 SDK (zsl-1)
+    if(SYSTEM_TYPE STREQUAL "Linux")
+        add_library(agibot_d1_sdk SHARED IMPORTED)
+        set_target_properties(agibot_d1_sdk PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/agibot/agibot_D1_Edu-Ultra/include"
+            IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/agibot/agibot_D1_Edu-Ultra/lib/zsl-1/${ARCH_DIR}/libmc_sdk_zsl_1_${ARCH_DIR}.so"
+        )
+        set(AGIBOT_D1_LIBS Threads::Threads agibot_d1_sdk)
+        if($ENV{ROS_DISTRO} MATCHES "foxy|humble")
+            file(GLOB GLOB_AGIBOT_D1_SDK_SO "${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/agibot/agibot_D1_Edu-Ultra/lib/zsl-1/${ARCH_DIR}/libmc_sdk_zsl_1_${ARCH_DIR}.so")
+            install(FILES
+                ${GLOB_AGIBOT_D1_SDK_SO}
+                DESTINATION lib/
+            )
+        endif()
+    endif()
+
+    # Retroid Gamepad
+    if(SYSTEM_TYPE STREQUAL "Linux")
+        set(GAMEPAD_SRC
+            ${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/gamepad/src/gamepad.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/gamepad/src/retroid_gamepad.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/gamepad/src/udp_receiver.cpp
         )
     endif()
-endif()
-
-# Retroid Gamepad
-if(SYSTEM_TYPE STREQUAL "Linux")
-set(GAMEPAD_SRC
-    ${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/gamepad/src/gamepad.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/gamepad/src/retroid_gamepad.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/deeprobotics/gamepad/src/udp_receiver.cpp
-)
+else()
+    message(STATUS "Legacy non-UIKA robot SDK integrations: disabled")
 endif()
 
 if(NOT USE_CMAKE)
@@ -612,15 +617,17 @@ endif()
 # add_executable(test_vector_math test/test_vector_math.cpp)
 # install(TARGETS test_vector_math DESTINATION lib/${PROJECT_NAME})
 
-add_executable(test_rl_sdk_observations test/test_rl_sdk_observations.cpp)
-target_link_libraries(test_rl_sdk_observations
-    rl_sdk
-    observation_buffer
-    ${YAML_CPP_LIBRARIES}
-)
-if(NOT USE_CMAKE)
-    if($ENV{ROS_DISTRO} MATCHES "foxy|humble")
-        install(TARGETS test_rl_sdk_observations DESTINATION lib/${PROJECT_NAME})
+if(ENABLE_LEGACY_ROBOT_SDKS)
+    add_executable(test_rl_sdk_observations test/test_rl_sdk_observations.cpp)
+    target_link_libraries(test_rl_sdk_observations
+        rl_sdk
+        observation_buffer
+        ${YAML_CPP_LIBRARIES}
+    )
+    if(NOT USE_CMAKE)
+        if($ENV{ROS_DISTRO} MATCHES "foxy|humble")
+            install(TARGETS test_rl_sdk_observations DESTINATION lib/${PROJECT_NAME})
+        endif()
     endif()
 endif()
 

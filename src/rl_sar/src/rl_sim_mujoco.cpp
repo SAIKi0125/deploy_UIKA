@@ -12,6 +12,36 @@ RL_Sim* RL_Sim::instance = nullptr;
 namespace
 {
 
+double MujocoActuatorGearRatio(const mjModel* model, int actuator_index)
+{
+    if (model == nullptr || actuator_index < 0 || actuator_index >= model->nu)
+    {
+        return 1.0;
+    }
+
+    const double gear = model->actuator_gear[actuator_index * 6];
+    if (std::abs(gear) < 1.0e-9)
+    {
+        return 1.0;
+    }
+    return gear;
+}
+
+double MujocoSensorJointPosition(const mjModel* model, const mjData* data, int actuator_index, int sensor_index)
+{
+    return data->sensordata[sensor_index] / MujocoActuatorGearRatio(model, actuator_index);
+}
+
+double MujocoSensorJointVelocity(const mjModel* model, const mjData* data, int actuator_index, int sensor_index)
+{
+    return data->sensordata[sensor_index] / MujocoActuatorGearRatio(model, actuator_index);
+}
+
+double MujocoSensorJointTorque(const mjModel* model, const mjData* data, int actuator_index, int sensor_index)
+{
+    return data->sensordata[sensor_index] * MujocoActuatorGearRatio(model, actuator_index);
+}
+
 std::vector<float> MjBodyPosition(const mjData* data, int body_id)
 {
     const mjtNum* pos = data->xpos + 3 * body_id;
@@ -215,9 +245,12 @@ void RL_Sim::GetState(RobotState<float> *state)
 
         for (int i = 0; i < this->params.Get<int>("num_of_dofs"); ++i)
         {
-            state->motor_state.q[i] = mj_data->sensordata[this->params.Get<std::vector<int>>("joint_mapping")[i]];
-            state->motor_state.dq[i] = mj_data->sensordata[this->params.Get<std::vector<int>>("joint_mapping")[i] + this->params.Get<int>("num_of_dofs")];
-            state->motor_state.tau_est[i] = mj_data->sensordata[this->params.Get<std::vector<int>>("joint_mapping")[i] + 2 * this->params.Get<int>("num_of_dofs")];
+            const int actuator_index = this->params.Get<std::vector<int>>("joint_mapping")[i];
+            state->motor_state.q[i] = MujocoSensorJointPosition(mj_model, mj_data, actuator_index, actuator_index);
+            state->motor_state.dq[i] = MujocoSensorJointVelocity(
+                mj_model, mj_data, actuator_index, actuator_index + this->params.Get<int>("num_of_dofs"));
+            state->motor_state.tau_est[i] = MujocoSensorJointTorque(
+                mj_model, mj_data, actuator_index, actuator_index + 2 * this->params.Get<int>("num_of_dofs"));
         }
     }
 }
@@ -228,10 +261,16 @@ void RL_Sim::SetCommand(const RobotCommand<float> *command)
     {
         for (int i = 0; i < this->params.Get<int>("num_of_dofs"); ++i)
         {
-            mj_data->ctrl[this->params.Get<std::vector<int>>("joint_mapping")[i]] =
+            const int actuator_index = this->params.Get<std::vector<int>>("joint_mapping")[i];
+            const double gear = MujocoActuatorGearRatio(mj_model, actuator_index);
+            const double joint_pos = MujocoSensorJointPosition(mj_model, mj_data, actuator_index, actuator_index);
+            const double joint_vel = MujocoSensorJointVelocity(
+                mj_model, mj_data, actuator_index, actuator_index + this->params.Get<int>("num_of_dofs"));
+            const double joint_torque =
                 command->motor_command.tau[i] +
-                command->motor_command.kp[i] * (command->motor_command.q[i] - mj_data->sensordata[this->params.Get<std::vector<int>>("joint_mapping")[i]]) +
-                command->motor_command.kd[i] * (command->motor_command.dq[i] - mj_data->sensordata[this->params.Get<std::vector<int>>("joint_mapping")[i] + this->params.Get<int>("num_of_dofs")]);
+                command->motor_command.kp[i] * (command->motor_command.q[i] - joint_pos) +
+                command->motor_command.kd[i] * (command->motor_command.dq[i] - joint_vel);
+            mj_data->ctrl[actuator_index] = joint_torque / gear;
         }
     }
 }
