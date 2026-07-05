@@ -17,6 +17,7 @@
 #include "interfaces/msg/motor_feedback12.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/imu.hpp"
+#include "sensor_msgs/msg/joy.hpp"
 
 #include <array>
 #include <mutex>
@@ -42,6 +43,7 @@ private:
     void ImuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
     void CmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
     void XboxVelCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
+    void JoyCallback(const sensor_msgs::msg::Joy::SharedPtr msg);
 
     bool SensorsReady() const;
     float ToJointPosition(int index, float motor_position) const;
@@ -61,10 +63,12 @@ private:
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_subscriber;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_subscriber;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr xbox_vel_subscriber;
+    rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_subscriber;
 
     mutable std::mutex state_mutex;
     RobotState<float> latest_state;
     geometry_msgs::msg::Twist cmd_vel;
+    sensor_msgs::msg::Joy joy_msg;
     bool motor_feedback_received = false;
     bool imu_received = false;
 
@@ -73,6 +77,7 @@ private:
     std::string imu_topic = "/imu/data";
     std::string cmd_vel_topic = "/cmd_vel";
     std::string xbox_vel_topic = "/xbox_vel";
+    std::string joy_topic = "/joy";
     // Jetson rs00_motor handles the 28/15 calf reduction on /motor_command
     // and converts /motor_feedback back to joint-side units.
     float calf_gear_ratio = 1.0f;

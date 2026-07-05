@@ -50,6 +50,7 @@ RL_Real_UIKA::RL_Real_UIKA(int argc, char **argv)
     this->ros2_node->declare_parameter<std::string>("imu_topic", this->imu_topic);
     this->ros2_node->declare_parameter<std::string>("cmd_vel_topic", this->cmd_vel_topic);
     this->ros2_node->declare_parameter<std::string>("xbox_vel_topic", this->xbox_vel_topic);
+    this->ros2_node->declare_parameter<std::string>("joy_topic", this->joy_topic);
     this->ros2_node->declare_parameter<double>("calf_gear_ratio", this->calf_gear_ratio);
 
     this->robot_name = this->ros2_node->get_parameter("robot_name").as_string();
@@ -58,6 +59,7 @@ RL_Real_UIKA::RL_Real_UIKA(int argc, char **argv)
     this->imu_topic = this->ros2_node->get_parameter("imu_topic").as_string();
     this->cmd_vel_topic = this->ros2_node->get_parameter("cmd_vel_topic").as_string();
     this->xbox_vel_topic = this->ros2_node->get_parameter("xbox_vel_topic").as_string();
+    this->joy_topic = this->ros2_node->get_parameter("joy_topic").as_string();
     this->calf_gear_ratio = static_cast<float>(this->ros2_node->get_parameter("calf_gear_ratio").as_double());
 
     this->ReadYaml(this->robot_name, "base.yaml");
@@ -95,6 +97,9 @@ RL_Real_UIKA::RL_Real_UIKA(int argc, char **argv)
     this->xbox_vel_subscriber = this->ros2_node->create_subscription<geometry_msgs::msg::Twist>(
         this->xbox_vel_topic, rclcpp::SystemDefaultsQoS(),
         [this](const geometry_msgs::msg::Twist::SharedPtr msg) { this->XboxVelCallback(msg); });
+    this->joy_subscriber = this->ros2_node->create_subscription<sensor_msgs::msg::Joy>(
+        this->joy_topic, rclcpp::SystemDefaultsQoS(),
+        [this](const sensor_msgs::msg::Joy::SharedPtr msg) { this->JoyCallback(msg); });
 
     this->loop_control = std::make_shared<LoopFunc>(
         "loop_control", this->params.Get<float>("dt"), std::bind(&RL_Real_UIKA::RobotControl, this));
@@ -112,6 +117,7 @@ RL_Real_UIKA::RL_Real_UIKA(int argc, char **argv)
     std::cout << LOGGER::INFO << "Feedback: " << this->motor_feedback_topic
               << ", IMU: " << this->imu_topic
               << ", command: " << this->motor_command_topic
+              << ", joy: " << this->joy_topic
               << ", calf gear: " << this->calf_gear_ratio << std::endl;
 }
 
@@ -237,6 +243,59 @@ void RL_Real_UIKA::XboxVelCallback(const geometry_msgs::msg::Twist::SharedPtr ms
     this->control.x = static_cast<float>(msg->linear.x);
     this->control.y = static_cast<float>(msg->linear.y);
     this->control.yaw = static_cast<float>(msg->angular.z);
+}
+
+void RL_Real_UIKA::JoyCallback(const sensor_msgs::msg::Joy::SharedPtr msg)
+{
+    this->joy_msg = *msg;
+
+    const auto button = [this](size_t index) -> bool {
+        return index < this->joy_msg.buttons.size() && this->joy_msg.buttons[index] != 0;
+    };
+    const auto axis = [this](size_t index) -> float {
+        return index < this->joy_msg.axes.size() ? this->joy_msg.axes[index] : 0.0f;
+    };
+
+    // Same F710/Xbox mapping used by rl_sim:
+    // buttons: A=0, B=1, X=2, Y=3, LB=4, RB=5, stickL=9, stickR=10
+    // axes: Lx=0, Ly=1, Rx=3, DPadX=6, DPadY=7
+    if (button(0)) this->control.SetGamepad(Input::Gamepad::A);
+    if (button(1)) this->control.SetGamepad(Input::Gamepad::B);
+    if (button(2)) this->control.SetGamepad(Input::Gamepad::X);
+    if (button(3)) this->control.SetGamepad(Input::Gamepad::Y);
+    if (button(4)) this->control.SetGamepad(Input::Gamepad::LB);
+    if (button(5)) this->control.SetGamepad(Input::Gamepad::RB);
+    if (button(9)) this->control.SetGamepad(Input::Gamepad::LStick);
+    if (button(10)) this->control.SetGamepad(Input::Gamepad::RStick);
+    if (axis(7) > 0.0f) this->control.SetGamepad(Input::Gamepad::DPadUp);
+    if (axis(7) < 0.0f) this->control.SetGamepad(Input::Gamepad::DPadDown);
+    if (axis(6) < 0.0f) this->control.SetGamepad(Input::Gamepad::DPadLeft);
+    if (axis(6) > 0.0f) this->control.SetGamepad(Input::Gamepad::DPadRight);
+    if (button(4) && button(0)) this->control.SetGamepad(Input::Gamepad::LB_A);
+    if (button(4) && button(1)) this->control.SetGamepad(Input::Gamepad::LB_B);
+    if (button(4) && button(2)) this->control.SetGamepad(Input::Gamepad::LB_X);
+    if (button(4) && button(3)) this->control.SetGamepad(Input::Gamepad::LB_Y);
+    if (button(4) && button(9)) this->control.SetGamepad(Input::Gamepad::LB_LStick);
+    if (button(4) && button(10)) this->control.SetGamepad(Input::Gamepad::LB_RStick);
+    if (button(4) && axis(7) > 0.0f) this->control.SetGamepad(Input::Gamepad::LB_DPadUp);
+    if (button(4) && axis(7) < 0.0f) this->control.SetGamepad(Input::Gamepad::LB_DPadDown);
+    if (button(4) && axis(6) < 0.0f) this->control.SetGamepad(Input::Gamepad::LB_DPadRight);
+    if (button(4) && axis(6) > 0.0f) this->control.SetGamepad(Input::Gamepad::LB_DPadLeft);
+    if (button(5) && button(0)) this->control.SetGamepad(Input::Gamepad::RB_A);
+    if (button(5) && button(1)) this->control.SetGamepad(Input::Gamepad::RB_B);
+    if (button(5) && button(2)) this->control.SetGamepad(Input::Gamepad::RB_X);
+    if (button(5) && button(3)) this->control.SetGamepad(Input::Gamepad::RB_Y);
+    if (button(5) && button(9)) this->control.SetGamepad(Input::Gamepad::RB_LStick);
+    if (button(5) && button(10)) this->control.SetGamepad(Input::Gamepad::RB_RStick);
+    if (button(5) && axis(7) > 0.0f) this->control.SetGamepad(Input::Gamepad::RB_DPadUp);
+    if (button(5) && axis(7) < 0.0f) this->control.SetGamepad(Input::Gamepad::RB_DPadDown);
+    if (button(5) && axis(6) < 0.0f) this->control.SetGamepad(Input::Gamepad::RB_DPadRight);
+    if (button(5) && axis(6) > 0.0f) this->control.SetGamepad(Input::Gamepad::RB_DPadLeft);
+    if (button(4) && button(5)) this->control.SetGamepad(Input::Gamepad::LB_RB);
+
+    this->control.x = axis(1);
+    this->control.y = axis(0);
+    this->control.yaw = axis(3);
 }
 
 void RL_Real_UIKA::GetState(RobotState<float> *state)
