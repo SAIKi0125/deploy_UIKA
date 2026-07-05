@@ -19,10 +19,6 @@
     <depend>sensor_msgs</depend>
     <depend>std_srvs</depend>
     <depend>rcl_interfaces</depend>
-    <depend>robot_joint_controller</depend>
-    <depend>controller_manager</depend>
-    <depend>joint_state_controller</depend>
-    <depend>robot_state_publisher</depend>
     <depend>rospy</depend>
 
     <export>

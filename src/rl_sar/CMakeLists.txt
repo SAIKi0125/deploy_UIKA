@@ -29,6 +29,8 @@ endif()
 # MuJoCo simulator option
 set(USE_MUJOCO OFF CACHE BOOL "Build with MuJoCo simulator support")
 set(ENABLE_LEGACY_ROBOT_SDKS OFF CACHE BOOL "Build legacy non-UIKA robot SDK integrations")
+set(BUILD_RL_SIM OFF CACHE BOOL "Build ROS Gazebo simulation node and controller dependencies")
+set(BUILD_UIKA_REAL ON CACHE BOOL "Build UIKA real robot ROS2 topic deployment node")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -70,23 +72,33 @@ if(NOT USE_CMAKE)
         )
     elseif($ENV{ROS_DISTRO} MATCHES "foxy|humble")
         find_package(ament_cmake REQUIRED)
-        find_package(joint_state_broadcaster REQUIRED)
-        find_package(robot_state_publisher REQUIRED)
         find_package(rclcpp REQUIRED)
-        find_package(gazebo_ros REQUIRED)
         find_package(std_msgs REQUIRED)
         find_package(robot_msgs REQUIRED)
-        find_package(robot_joint_controller REQUIRED)
         find_package(rclpy REQUIRED)
-        find_package(gazebo_msgs REQUIRED)
         find_package(std_srvs REQUIRED)
         find_package(geometry_msgs REQUIRED)
         find_package(sensor_msgs REQUIRED)
         find_package(rcl_interfaces REQUIRED)
+        if(BUILD_RL_SIM)
+            find_package(joint_state_broadcaster REQUIRED)
+            find_package(robot_state_publisher REQUIRED)
+            find_package(gazebo_ros REQUIRED)
+            find_package(robot_joint_controller REQUIRED)
+            find_package(gazebo_msgs REQUIRED)
+        endif()
+        if(BUILD_UIKA_REAL)
+            find_package(interfaces QUIET)
+            if(NOT interfaces_FOUND)
+                message(WARNING "BUILD_UIKA_REAL is ON but ROS2 package 'interfaces' was not found. rl_real_uika will be skipped. Source the Quadruped_Uika install setup.bash to enable it.")
+            endif()
+        endif()
         ament_package()
     endif()
-    add_compile_options(${GAZEBO_CXX_FLAGS})
-    find_package(gazebo REQUIRED)
+    if(BUILD_RL_SIM)
+        add_compile_options(${GAZEBO_CXX_FLAGS})
+        find_package(gazebo REQUIRED)
+    endif()
 endif()
 
 # Inference Runtime
@@ -186,6 +198,15 @@ if(EXISTS "${LIBTORCH_DIR}/include" AND EXISTS "${LIBTORCH_DIR}/lib")
     find_package(Torch QUIET)
 
     if(Torch_FOUND)
+        set(FILTERED_TORCH_LIBRARIES "")
+        foreach(torch_lib ${TORCH_LIBRARIES})
+            if(IS_ABSOLUTE "${torch_lib}" AND NOT EXISTS "${torch_lib}")
+                message(WARNING "Skipping missing Torch library: ${torch_lib}")
+            else()
+                list(APPEND FILTERED_TORCH_LIBRARIES "${torch_lib}")
+            endif()
+        endforeach()
+        set(TORCH_LIBRARIES ${FILTERED_TORCH_LIBRARIES})
         message(STATUS "LibTorch version: ${Torch_VERSION}")
         message(STATUS "Torch libraries: ${TORCH_LIBRARIES}")
     else()
@@ -423,32 +444,54 @@ endif()
 
 # executable for rl sim
 if(NOT USE_CMAKE)
-    add_executable(rl_sim src/rl_sim.cpp)
-    target_link_libraries(rl_sim
-        rl_sdk
-        observation_buffer
-        ${YAML_CPP_LIBRARIES}
-        Threads::Threads
-    )
-    if($ENV{ROS_DISTRO} MATCHES "noetic")
-        target_link_libraries(rl_sim ${catkin_LIBRARIES})
-    elseif($ENV{ROS_DISTRO} MATCHES "foxy|humble")
-        ament_target_dependencies(rl_sim
-            joint_state_broadcaster
-            robot_state_publisher
+    if(BUILD_RL_SIM)
+        add_executable(rl_sim src/rl_sim.cpp)
+        target_link_libraries(rl_sim
+            rl_sdk
+            observation_buffer
+            ${YAML_CPP_LIBRARIES}
+            Threads::Threads
+        )
+        if($ENV{ROS_DISTRO} MATCHES "noetic")
+            target_link_libraries(rl_sim ${catkin_LIBRARIES})
+        elseif($ENV{ROS_DISTRO} MATCHES "foxy|humble")
+            ament_target_dependencies(rl_sim
+                joint_state_broadcaster
+                robot_state_publisher
+                rclcpp
+                gazebo_ros
+                std_msgs
+                robot_msgs
+                robot_joint_controller
+                rclpy
+                gazebo_msgs
+                std_srvs
+                geometry_msgs
+                sensor_msgs
+                rcl_interfaces
+            )
+            install(TARGETS rl_sim DESTINATION lib/${PROJECT_NAME})
+        endif()
+    endif()
+endif()
+
+# executable for uika real robot topic deployment
+if(NOT USE_CMAKE)
+    if($ENV{ROS_DISTRO} MATCHES "foxy|humble" AND BUILD_UIKA_REAL AND interfaces_FOUND)
+        add_executable(rl_real_uika src/rl_real_uika.cpp)
+        target_link_libraries(rl_real_uika
+            rl_sdk
+            observation_buffer
+            ${YAML_CPP_LIBRARIES}
+            Threads::Threads
+        )
+        ament_target_dependencies(rl_real_uika
             rclcpp
-            gazebo_ros
-            std_msgs
-            robot_msgs
-            robot_joint_controller
-            rclpy
-            gazebo_msgs
-            std_srvs
             geometry_msgs
             sensor_msgs
-            rcl_interfaces
+            interfaces
         )
-        install(TARGETS rl_sim DESTINATION lib/${PROJECT_NAME})
+        install(TARGETS rl_real_uika DESTINATION lib/${PROJECT_NAME})
     endif()
 endif()
 

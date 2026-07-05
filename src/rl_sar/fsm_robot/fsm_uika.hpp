@@ -74,9 +74,10 @@ public:
     float percent_pre_getup = 0.0f;
     float percent_getup = 0.0f;
     std::vector<float> pre_running_pos = {
-        -0.70f, 0.70f, 0.70f, -0.70f,
-         0.20f, -0.20f, 0.20f, -0.20f,
-         0.70f, -0.70f, 0.70f, -0.70f
+        -0.80f,  -0.20f,  0.10f,
+         0.80f,  -0.20f,  0.10f,
+        -0.80f,  -0.20f,  0.10f,
+         0.80f,  -0.20f,  0.10f
     };
     bool stand_from_passive = true;
 
