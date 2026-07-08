@@ -12,25 +12,12 @@
 namespace uika_fsm
 {
 
-inline std::string CheckPolicyChange(RL& rl, const std::string& current_state)
+inline void DrainOutputQueues(RL& rl)
 {
-    if (rl.control.current_keyboard == Input::Keyboard::P || rl.control.current_gamepad == Input::Gamepad::LB_X)
-    {
-        return "RLFSMStatePassive";
-    }
-    if (rl.control.current_keyboard == Input::Keyboard::Num9 || rl.control.current_gamepad == Input::Gamepad::B)
-    {
-        return "RLFSMStateGetDown";
-    }
-    if (rl.control.current_keyboard == Input::Keyboard::Num0 || rl.control.current_gamepad == Input::Gamepad::A)
-    {
-        return "RLFSMStateGetUp";
-    }
-    if (rl.control.current_keyboard == Input::Keyboard::Num1 || rl.control.current_gamepad == Input::Gamepad::RB_DPadUp)
-    {
-        return "RLFSMStateRLHimLoco";
-    }
-    return current_state;
+    std::vector<float> output;
+    while (rl.output_dof_pos_queue.try_pop(output)) {}
+    while (rl.output_dof_vel_queue.try_pop(output)) {}
+    while (rl.output_dof_tau_queue.try_pop(output)) {}
 }
 
 class RLFSMStatePassive : public RLFSMState
@@ -85,7 +72,14 @@ public:
     {
         percent_pre_getup = 0.0f;
         percent_getup = 0.0f;
-        stand_from_passive = rl.fsm.previous_state_ && rl.fsm.previous_state_->GetStateName() == "RLFSMStatePassive";
+        if (rl.fsm.previous_state_->GetStateName() == "RLFSMStatePassive")
+        {
+            stand_from_passive = true;
+        }
+        else
+        {
+            stand_from_passive = false;
+        }
         rl.now_state = *fsm_state;
         rl.start_state = rl.now_state;
     }
@@ -113,7 +107,18 @@ public:
         }
         if (percent_getup >= 1.0f)
         {
-            return CheckPolicyChange(rl, state_name_);
+            if (rl.control.current_keyboard == Input::Keyboard::Num1 || rl.control.current_gamepad == Input::Gamepad::RB_DPadUp)
+            {
+                return "RLFSMStateRLLocomotion";
+            }
+            else if (rl.control.current_keyboard == Input::Keyboard::Num2 || rl.control.current_gamepad == Input::Gamepad::RB_DPadRight)
+            {
+                return "RLFSMStateRLLowBar";
+            }
+            else if (rl.control.current_keyboard == Input::Keyboard::Num9 || rl.control.current_gamepad == Input::Gamepad::B)
+            {
+                return "RLFSMStateGetDown";
+            }
         }
         return state_name_;
     }
@@ -153,10 +158,10 @@ public:
     }
 };
 
-class RLFSMStateRLHimLoco : public RLFSMState
+class RLFSMStateRLLocomotion : public RLFSMState
 {
 public:
-    RLFSMStateRLHimLoco(RL *rl) : RLFSMState(*rl, "RLFSMStateRLHimLoco") {}
+    RLFSMStateRLLocomotion(RL *rl) : RLFSMState(*rl, "RLFSMStateRLLocomotion") {}
 
     float percent_transition = 0.0f;
 
@@ -164,13 +169,15 @@ public:
     {
         percent_transition = 0.0f;
         rl.episode_length_buf = 0;
+
         rl.config_name = "himloco";
+        std::string robot_config_path = rl.robot_name + "/" + rl.config_name;
 
         try
         {
-            rl.InitRL(rl.robot_name + "/" + rl.config_name);
+            rl.InitRL(robot_config_path);
+            DrainOutputQueues(rl);
             rl.now_state = *fsm_state;
-            DrainOutputQueues();
         }
         catch (const std::exception& e)
         {
@@ -182,13 +189,12 @@ public:
 
     void Run() override
     {
-        if (Interpolate(percent_transition, rl.now_state.motor_state.q, rl.params.Get<std::vector<float>>("default_dof_pos"), 0.5f, "Policy transition", true)) return;
+        // position transition from last default_dof_pos to current default_dof_pos
+        // if (Interpolate(percent_transition, rl.now_state.motor_state.q, rl.params.Get<std::vector<float>>("default_dof_pos"), 0.5f, "Policy transition", true)) return;
+
         if (!rl.rl_init_done) rl.rl_init_done = true;
 
-        std::cout << "\r\033[K" << std::flush
-                  << LOGGER::INFO << "[himloco] x:" << rl.control.x
-                  << " y:" << rl.control.y
-                  << " yaw:" << rl.control.yaw << std::flush;
+        std::cout << "\r\033[K" << std::flush << LOGGER::INFO << "RL Controller [" << rl.config_name << "] x:" << rl.control.x << " y:" << rl.control.y << " yaw:" << rl.control.yaw << std::flush;
         RLControl();
     }
 
@@ -199,16 +205,97 @@ public:
 
     std::string CheckChange() override
     {
-        return CheckPolicyChange(rl, state_name_);
+        if (rl.control.current_keyboard == Input::Keyboard::P || rl.control.current_gamepad == Input::Gamepad::LB_X)
+        {
+            return "RLFSMStatePassive";
+        }
+        else if (rl.control.current_keyboard == Input::Keyboard::Num9 || rl.control.current_gamepad == Input::Gamepad::B)
+        {
+            return "RLFSMStateGetDown";
+        }
+        else if (rl.control.current_keyboard == Input::Keyboard::Num0 || rl.control.current_gamepad == Input::Gamepad::A)
+        {
+            return "RLFSMStateGetUp";
+        }
+        else if (rl.control.current_keyboard == Input::Keyboard::Num1 || rl.control.current_gamepad == Input::Gamepad::RB_DPadUp)
+        {
+            return "RLFSMStateRLLocomotion";
+        }
+        else if (rl.control.current_keyboard == Input::Keyboard::Num2 || rl.control.current_gamepad == Input::Gamepad::RB_DPadRight)
+        {
+            return "RLFSMStateRLLowBar";
+        }
+        return state_name_;
+    }
+};
+
+class RLFSMStateRLLowBar : public RLFSMState
+{
+public:
+    RLFSMStateRLLowBar(RL *rl) : RLFSMState(*rl, "RLFSMStateRLLowBar") {}
+
+    float percent_transition = 0.0f;
+
+    void Enter() override
+    {
+        percent_transition = 0.0f;
+        rl.episode_length_buf = 0;
+
+        rl.config_name = "lowbar";
+        std::string robot_config_path = rl.robot_name + "/" + rl.config_name;
+
+        try
+        {
+            rl.InitRL(robot_config_path);
+            DrainOutputQueues(rl);
+            rl.now_state = *fsm_state;
+        }
+        catch (const std::exception& e)
+        {
+            std::cout << LOGGER::ERROR << "InitRL() failed: " << e.what() << std::endl;
+            rl.rl_init_done = false;
+            rl.fsm.RequestStateChange("RLFSMStatePassive");
+        }
     }
 
-private:
-    void DrainOutputQueues()
+    void Run() override
     {
-        std::vector<float> output;
-        while (rl.output_dof_pos_queue.try_pop(output)) {}
-        while (rl.output_dof_vel_queue.try_pop(output)) {}
-        while (rl.output_dof_tau_queue.try_pop(output)) {}
+        if (Interpolate(percent_transition, rl.now_state.motor_state.q, rl.params.Get<std::vector<float>>("default_dof_pos"), 1.0f, "Low-bar policy transition", true)) return;
+
+        if (!rl.rl_init_done) rl.rl_init_done = true;
+
+        std::cout << "\r\033[K" << std::flush << LOGGER::INFO << "RL Controller [" << rl.config_name << "] x:" << rl.control.x << " y:" << rl.control.y << " yaw:" << rl.control.yaw << std::flush;
+        RLControl();
+    }
+
+    void Exit() override
+    {
+        rl.rl_init_done = false;
+    }
+
+    std::string CheckChange() override
+    {
+        if (rl.control.current_keyboard == Input::Keyboard::P || rl.control.current_gamepad == Input::Gamepad::LB_X)
+        {
+            return "RLFSMStatePassive";
+        }
+        else if (rl.control.current_keyboard == Input::Keyboard::Num9 || rl.control.current_gamepad == Input::Gamepad::B)
+        {
+            return "RLFSMStateGetDown";
+        }
+        else if (rl.control.current_keyboard == Input::Keyboard::Num0 || rl.control.current_gamepad == Input::Gamepad::A)
+        {
+            return "RLFSMStateGetUp";
+        }
+        else if (rl.control.current_keyboard == Input::Keyboard::Num1 || rl.control.current_gamepad == Input::Gamepad::RB_DPadUp)
+        {
+            return "RLFSMStateRLLocomotion";
+        }
+        else if (rl.control.current_keyboard == Input::Keyboard::Num2 || rl.control.current_gamepad == Input::Gamepad::RB_DPadRight)
+        {
+            return "RLFSMStateRLLowBar";
+        }
+        return state_name_;
     }
 };
 
@@ -228,8 +315,10 @@ public:
             return std::make_shared<uika_fsm::RLFSMStateGetUp>(rl);
         else if (state_name == "RLFSMStateGetDown")
             return std::make_shared<uika_fsm::RLFSMStateGetDown>(rl);
-        else if (state_name == "RLFSMStateRLHimLoco")
-            return std::make_shared<uika_fsm::RLFSMStateRLHimLoco>(rl);
+        else if (state_name == "RLFSMStateRLLocomotion")
+            return std::make_shared<uika_fsm::RLFSMStateRLLocomotion>(rl);
+        else if (state_name == "RLFSMStateRLLowBar")
+            return std::make_shared<uika_fsm::RLFSMStateRLLowBar>(rl);
         return nullptr;
     }
 
@@ -241,7 +330,8 @@ public:
             "RLFSMStatePassive",
             "RLFSMStateGetUp",
             "RLFSMStateGetDown",
-            "RLFSMStateRLHimLoco"
+            "RLFSMStateRLLocomotion",
+            "RLFSMStateRLLowBar"
         };
     }
 

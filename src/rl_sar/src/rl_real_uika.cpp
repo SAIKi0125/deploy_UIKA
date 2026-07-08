@@ -341,6 +341,8 @@ void RL_Real_UIKA::RobotControl()
 
 void RL_Real_UIKA::RunModel()
 {
+    std::lock_guard<std::mutex> policy_lock(this->policy_mutex);
+
     if (this->rl_init_done && this->SensorsReady())
     {
         this->episode_length_buf += 1;

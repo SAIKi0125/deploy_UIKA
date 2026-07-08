@@ -295,7 +295,8 @@ void RL::InitJointNum(size_t num_joints)
 
 void RL::InitRL(std::string robot_config_path)
 {
-    std::lock_guard<std::mutex> lock(this->model_mutex);
+    std::lock_guard<std::mutex> policy_lock(this->policy_mutex);
+    std::lock_guard<std::mutex> model_lock(this->model_mutex);
 
     this->ReadYaml(robot_config_path, "config.yaml");
 
